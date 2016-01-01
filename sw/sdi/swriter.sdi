@@ -5323,6 +5323,30 @@ SfxVoidItem MailMergeLastEntry FN_MAILMERGE_LAST_ENTRY
     GroupId = GID_DOCUMENT;
 ]
 
+SfxVoidItem MailMergeCurrentEntry FN_MAILMERGE_CURRENT_ENTRY
+()
+[
+    /* flags: */
+    AutoUpdate = TRUE,
+    Cachable = Cachable,
+    FastCall = TRUE,
+    HasCoreId = FALSE,
+    HasDialog = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = TRUE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+    Synchron;
+
+    /* config: */
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    StatusBarConfig = FALSE,
+    ToolBoxConfig = TRUE,
+    GroupId = GID_DOCUMENT;
+]
+
 SfxVoidItem MailMergeExcludeEntry FN_MAILMERGE_EXCLUDE_ENTRY
 ()
 [
