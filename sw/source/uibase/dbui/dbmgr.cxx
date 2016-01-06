@@ -999,8 +999,13 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
             if (bCreateSingleFile)
             {
                 CreateTargetDocShell(nMaxDumpDocs, bMergeShell, pSourceWindow, pSourceShell,
-                        pSourceDocSh, xTargetDocShell, pTargetDoc, pTargetShell,
-                        pTargetView, nStartingPageNo, sStartingPageDesc);
+                        pSourceDocSh, xTargetDocShell, pTargetDoc,
+                        pTargetShell, pTargetView);
+
+                // determine the page style and number used at the start of the source document
+                pSourceShell->SttEndDoc(true);
+                nStartingPageNo = pSourceShell->GetVirtPageNum();
+                sStartingPageDesc = pSourceShell->GetPageDesc(pSourceShell->GetCurPageDesc()).GetName();
 
                 // #i72517#
                 const SwPageDesc* pSourcePageDesc = pSourceShell->FindPageDescByName(sStartingPageDesc);
@@ -1362,8 +1367,7 @@ void SwDBManager::UpdateProgressDlg(bool bMergeShell, VclPtr<CancelableDialog> p
 void SwDBManager::CreateTargetDocShell(sal_Int32 nMaxDumpDocs, bool bMergeShell, vcl::Window *pSourceWindow,
                                        SwWrtShell *pSourceShell, SwDocShell *pSourceDocSh,
                                        SfxObjectShellRef &xTargetDocShell, SwDoc *&pTargetDoc,
-                                       SwWrtShell *&pTargetShell, SwView  *&pTargetView,
-                                       sal_uInt16 &nStartingPageNo, OUString &sStartingPageDesc)
+                                       SwWrtShell *&pTargetShell, SwView  *&pTargetView)
 {
     // create a target docshell to put the merged document into
     xTargetDocShell = new SwDocShell( SfxObjectCreateMode::STANDARD );
@@ -1388,12 +1392,6 @@ void SwDBManager::CreateTargetDocShell(sal_Int32 nMaxDumpDocs, bool bMergeShell,
 
     //copy the styles from the source to the target document
     pTargetView->GetDocShell()->_LoadStyles( *pSourceDocSh, true );
-
-    //determine the page style and number used at the start of the source document
-    pSourceShell->SttEndDoc(true);
-    nStartingPageNo = pSourceShell->GetVirtPageNum();
-    sStartingPageDesc = pSourceShell->GetPageDesc(
-        pSourceShell->GetCurPageDesc()).GetName();
 
     // copy compatibility options
     pTargetShell->GetDoc()->ReplaceCompatibilityOptions( *pSourceShell->GetDoc());
