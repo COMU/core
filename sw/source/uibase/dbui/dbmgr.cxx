@@ -135,6 +135,7 @@
 #include <ndtxt.hxx>
 #include <calc.hxx>
 #include <dbfld.hxx>
+#include <DocumentFieldsManager.hxx>
 
 #include <memory>
 #include <config_cups.h>
@@ -1015,9 +1016,10 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
 
     uno::Reference< beans::XPropertySet > xColumnProp;
     {
+        // Check for (mandatory) email or (optional) filename column
+        SwDBFormatData aColumnDBFormat;
         bool bColumnName = !sEMailAddrField.isEmpty();
-
-        if (bColumnName)
+        if( bColumnName )
         {
             uno::Reference< sdbcx::XColumnsSupplier > xColsSupp( pImpl->pMergeData->xResultSet, uno::UNO_QUERY );
             uno::Reference<container::XNameAccess> xCols = xColsSupp->getColumns();
@@ -1025,6 +1027,9 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                 return false;
             uno::Any aCol = xCols->getByName(sEMailAddrField);
             aCol >>= xColumnProp;
+
+            aColumnDBFormat.xFormatter = pImpl->pMergeData->xFormatter;
+            aColumnDBFormat.aNullDate  = pImpl->pMergeData->aNullDate;
         }
 
         // Try saving the source document
@@ -1067,6 +1072,8 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                 }
             }
             const bool bIsPDFeport = pStoreToFilter && pStoreToFilter->GetFilterName() == "writer_pdf_Export";
+
+            const sal_Int16 nWantedDBrecords = pSourceDocSh->GetDoc()->GetDocumentFieldsManager().WantedDBrecords();
 
             m_bCancel = false;
 
@@ -1179,33 +1186,45 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
             SwView*            pWorkView             = nullptr;
             SwDoc*             pWorkDoc              = nullptr;
             SwDBManager*       pWorkDocOrigDBManager = nullptr;
+            bool               bWorkDocInitialized   = false;
 
             do
             {
                 nStartRow = pImpl->pMergeData ? pImpl->pMergeData->xResultSet->getRow() : 0;
                 {
                     OUString sPath(sSubject);
+                    OUString sColumnData;
 
-                    OUString sAddress;
-                    if( !bMT_EMAIL && bColumnName )
+                    // Read the indicated data column, which should contain a valid mail
+                    // address or an optional file name
+                    if( bMT_EMAIL )
                     {
-                        SwDBFormatData aDBFormat;
-                        aDBFormat.xFormatter = pImpl->pMergeData->xFormatter;
-                        aDBFormat.aNullDate = pImpl->pMergeData->aNullDate;
-                        sAddress = GetDBField( xColumnProp, aDBFormat);
-                        if (sAddress.isEmpty())
-                            sAddress = "_";
-                        sPath += sAddress;
+                        sColumnData = GetDBField( xColumnProp, aColumnDBFormat );
+                        if( !SwMailMergeHelper::CheckMailAddress( sColumnData ) )
+                        {
+                            OSL_FAIL("invalid e-Mail address in database column");
+                            nDocNo++;
+                            ToNextMergeRecord(nWantedDBrecords);
+                            nEndRow = pImpl->pMergeData ? pImpl->pMergeData->xResultSet->getRow() : 0;
+                            continue;
+                        }
+                    }
+                    else if( bColumnName )
+                    {
+                        sColumnData = GetDBField( xColumnProp, aColumnDBFormat );
+                        if (sColumnData.isEmpty())
+                            sColumnData = "_";
+                        sPath += sColumnData;
                     }
 
                     // create a new temporary file name - only done once in case of bCreateSingleFile
-                    if( bNeedsTempFiles && ( 1 == nDocNo || !bCreateSingleFile ))
+                    if( bNeedsTempFiles && ( !bWorkDocInitialized || !bCreateSingleFile ))
                     {
                         INetURLObject aEntry(sPath);
                         OUString sLeading;
                         //#i97667# if the name is from a database field then it will be used _as is_
-                        if( !sAddress.isEmpty() )
-                            sLeading = sAddress;
+                        if( !sColumnData.isEmpty() )
+                            sLeading = sColumnData;
                         else
                             sLeading = aEntry.GetBase();
                         aEntry.removeSegment();
@@ -1247,7 +1266,7 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                         // Create a copy of the source document and work with that one instead of the source.
                         // If we're not in the single file mode (which requires modifying the document for the merging),
                         // it is enough to do this just once. Currently PDF also has to be treated special.
-                        if( 1 == nDocNo || bCreateSingleFile || bIsPDFeport )
+                        if( !bWorkDocInitialized || bCreateSingleFile || bIsPDFeport )
                         {
                             assert( !xWorkDocSh.Is());
                             // copy the source document
@@ -1340,7 +1359,7 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                             if( targetDocPageCount % 2 == 1 )
                                 ++targetDocPageCount; // Docs always start on odd pages (so offset must be even).
                             SwNodeIndex appendedDocStart = pTargetDoc->AppendDoc(*rWorkShell.GetDoc(),
-                                nStartingPageNo, pTargetPageDesc, nDocNo == 1, targetDocPageCount);
+                                nStartingPageNo, pTargetPageDesc, !bWorkDocInitialized, targetDocPageCount);
                             targetDocPageCount += rWorkShell.GetPageCnt();
                             if ( (nMaxDumpDocs < 0) || (nDocNo <= nMaxDumpDocs) )
                                 lcl_SaveDebugDoc( xTargetDocShell, "MergeDoc" );
@@ -1356,8 +1375,7 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                         }
                         else if( bMT_PRINTER )
                         {
-                            assert(!bCreateSingleFile);
-                            if( 1 == nDocNo ) // set up printing only once at the beginning
+                            if( !bWorkDocInitialized ) // set up printing only once at the beginning
                             {
                                 uno::Sequence< beans::PropertyValue > aOptions( rMergeDescriptor.aPrintOptions );
                                 lcl_PreparePrinterOptions( rMergeDescriptor.aPrintOptions, false, aOptions );
@@ -1388,23 +1406,15 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                             }
                             if( bMT_EMAIL )
                             {
-                                SwDBFormatData aDBFormat;
-                                aDBFormat.xFormatter = pImpl->pMergeData->xFormatter;
-                                aDBFormat.aNullDate = pImpl->pMergeData->aNullDate;
-                                OUString sMailAddress = GetDBField( xColumnProp, aDBFormat);
-                                if(!SwMailMergeHelper::CheckMailAddress( sMailAddress ))
-                                {
-                                    OSL_FAIL("invalid e-Mail address in database column");
-                                }
-                                else
                                 {
                                     SwMailMessage* pMessage = new SwMailMessage;
                                     uno::Reference< mail::XMailMessage > xMessage = pMessage;
                                     if(rMergeDescriptor.pMailMergeConfigItem->IsMailReplyTo())
                                         pMessage->setReplyToAddress(rMergeDescriptor.pMailMergeConfigItem->GetMailReplyTo());
-                                    pMessage->addRecipient( sMailAddress );
+                                    pMessage->addRecipient( sColumnData );
                                     pMessage->SetSenderAddress( rMergeDescriptor.pMailMergeConfigItem->GetMailAddress() );
                                     OUString sBody;
+
                                     if(rMergeDescriptor.bSendAsAttachment)
                                     {
                                         sBody = rMergeDescriptor.sMailBody;
@@ -1471,6 +1481,7 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                         }
                     }
                 }
+                bWorkDocInitialized = true;
                 nDocNo++;
                 nEndRow = pImpl->pMergeData ? pImpl->pMergeData->xResultSet->getRow() : 0;
 
@@ -2042,10 +2053,10 @@ bool    SwDBManager::GetMergeColumnCnt(const OUString& rColumnName, sal_uInt16 n
     return bRet;
 }
 
-bool SwDBManager::ToNextMergeRecord()
+bool SwDBManager::ToNextMergeRecord(const sal_uInt16 nSkip)
 {
     OSL_ENSURE(pImpl->pMergeData && pImpl->pMergeData->xResultSet.is(), "no data source in merge");
-    return ToNextRecord(pImpl->pMergeData, false);
+    return ToNextRecord(pImpl->pMergeData, false, nSkip);
 }
 
 bool SwDBManager::FillCalcWithMergeData( SvNumberFormatter *pDocFormatter,
@@ -2138,7 +2149,7 @@ bool SwDBManager::ToNextRecord(
     return ToNextRecord(pFound, false);
 }
 
-bool SwDBManager::ToNextRecord(SwDSParam* pParam, bool bReset)
+bool SwDBManager::ToNextRecord(SwDSParam* pParam, bool bReset, const sal_uInt16 nSkip)
 {
     bool bRet = true;
 
@@ -2161,7 +2172,8 @@ bool SwDBManager::ToNextRecord(SwDSParam* pParam, bool bReset)
         if(pParam->aSelection.getLength())
         {
             sal_Int32 nPos = 0;
-            pParam->aSelection.getConstArray()[ pParam->nSelectionIndex++ ] >>= nPos;
+            pParam->aSelection.getConstArray()[ pParam->nSelectionIndex ] >>= nPos;
+            pParam->nSelectionIndex += 1 + nSkip;
             pParam->bEndOfDB = !pParam->xResultSet->absolute( nPos );
             pParam->CheckEndOfDB();
             bRet = !pParam->bEndOfDB;
@@ -2170,13 +2182,19 @@ bool SwDBManager::ToNextRecord(SwDSParam* pParam, bool bReset)
         }
         else if (bReset)
         {
-            pImpl->pMergeData->bEndOfDB = !pImpl->pMergeData->xResultSet->first();
+            if (0 == nSkip)
+                pImpl->pMergeData->bEndOfDB = !pImpl->pMergeData->xResultSet->first();
+            else
+                pImpl->pMergeData->bEndOfDB = !pImpl->pMergeData->xResultSet->absolute( nSkip );
             pImpl->pMergeData->CheckEndOfDB();
         }
         else
         {
             sal_Int32 nBefore = pParam->xResultSet->getRow();
-            pParam->bEndOfDB = !pParam->xResultSet->next();
+            if (0 == nSkip)
+                pParam->bEndOfDB = !pParam->xResultSet->next();
+            else
+                pParam->bEndOfDB = !pParam->xResultSet->absolute( nBefore + nSkip );
             if( !pParam->bEndOfDB && nBefore == pParam->xResultSet->getRow())
             {
                 //next returned true but it didn't move
@@ -2185,7 +2203,7 @@ bool SwDBManager::ToNextRecord(SwDSParam* pParam, bool bReset)
 
             pParam->CheckEndOfDB();
             bRet = !pParam->bEndOfDB;
-            ++pParam->nSelectionIndex;
+            pParam->nSelectionIndex += 1 + nSkip;
         }
     }
     catch(const uno::Exception &e)

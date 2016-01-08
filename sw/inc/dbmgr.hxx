@@ -225,7 +225,7 @@ friend class SwConnectionDisposedListener_Impl;
     /// merge to file _and_ merge to e-Mail
     SAL_DLLPRIVATE bool          MergeMailFiles(SwWrtShell* pSh,
                                         const SwMergeDescriptor& rMergeDescriptor, vcl::Window* pParent );
-    SAL_DLLPRIVATE bool          ToNextRecord(SwDSParam* pParam, bool bReset);
+    SAL_DLLPRIVATE bool          ToNextRecord(SwDSParam* pParam, bool bReset, const sal_uInt16 nSkip = 0);
 
     SwDBManager(SwDBManager const&) = delete;
     SwDBManager& operator=(SwDBManager const&) = delete;
@@ -325,7 +325,7 @@ public:
                                       OUString &rResult, double *pNumber);
     bool            FillCalcWithMergeData(SvNumberFormatter *pDocFormatter,
                                           sal_uInt16 nLanguage, bool asString, SwCalc &aCalc);
-    bool            ToNextMergeRecord();
+    bool            ToNextMergeRecord(const sal_uInt16 nSkip = 0);
     bool            ToNextRecord(const OUString& rDataSource, const OUString& rTableOrQuery, sal_Int32 nCommandType = -1);
 
     bool            ExistsNextRecord()const;
