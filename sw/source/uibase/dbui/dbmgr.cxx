@@ -1007,6 +1007,8 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
     OUString                            sMailBodyMimeType;
     rtl_TextEncoding                    sMailEncoding = ::osl_getThreadTextEncoding();
 
+    // bNoError should be handled together with m_bCancel. while an error
+    // should always also set cancel, cancel doesn't indicate an / set error.
     bool bNoError = true;
 
     uno::Reference< beans::XPropertySet > xColumnProp;

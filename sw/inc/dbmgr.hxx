@@ -224,7 +224,14 @@ class SW_DLLPUBLIC SwDBManager
 {
 friend class SwConnectionDisposedListener_Impl;
 
-    bool            m_bCancel;            ///< Mail merge canceled.
+    /** Mail merge cancel indicator
+
+       TODO: convert m_bCancel to a three state escalating enum
+       run, cancel, error. Not sure if this helps readability /
+       further code cleanup, but it would be easier to follow the
+       seamantics and we could get rid of bNoError in MergeMailFiles
+     */
+    bool            m_bCancel;
     bool            bInitDBFields : 1;
     bool            bInMerge    : 1;    ///< merge process active
     bool            bMergeSilent : 1;   ///< suppress display of dialogs/boxes (used when called over API)
