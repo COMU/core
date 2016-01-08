@@ -149,7 +149,7 @@ public:
     virtual bool IsSaveSingleDoc() const = 0;
     virtual bool IsGenerateFromDataBase() const = 0;
     virtual OUString GetColumnName() const = 0;
-    virtual OUString GetPath() const = 0;
+    virtual OUString GetPath(bool) const = 0;
 
 };
 class AbstractMailMergeCreateFromDlg : public VclAbstractDialog
