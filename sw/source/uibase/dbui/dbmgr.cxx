@@ -1159,15 +1159,14 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                 // #i72517#
                 const SwPageDesc* pSourcePageDesc = pSourceShell->FindPageDescByName( sStartingPageDesc );
                 const SwFrameFormat& rMaster = pSourcePageDesc->GetMaster();
-                bPageStylesWithHeaderFooter = rMaster.GetHeader().IsActive()  ||
+                bPageStylesWithHeaderFooter = rMaster.GetHeader().IsActive() ||
                                                 rMaster.GetFooter().IsActive();
 
                 // copy compatibility options
-                pTargetShell->GetDoc()->ReplaceCompatibilityOptions( *pSourceShell->GetDoc());
+                pTargetDoc->ReplaceCompatibilityOptions( *pSourceShell->GetDoc());
                 // #72821# copy dynamic defaults
-                pTargetShell->GetDoc()->ReplaceDefaults( *pSourceShell->GetDoc());
-
-                pTargetShell->GetDoc()->ReplaceDocumentProperties( *pSourceShell->GetDoc());
+                pTargetDoc->ReplaceDefaults( *pSourceShell->GetDoc());
+                pTargetDoc->ReplaceDocumentProperties( *pSourceShell->GetDoc());
             }
 
             // Progress, to prohibit KeyInputs
@@ -1193,12 +1192,13 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                     lcl_getCountFromResultSet( nDocCount, pImpl->pMergeData->xResultSet ) )
                 static_cast<CreateMonitor*>( pProgressDlg.get() )->SetTotalCount( nDocCount );
 
-            long nStartRow, nEndRow;
+            long nStartRow, nEndRow = 0;
             bool bFreezedLayouts = false;
-            // collect temporary files
+            // to collect temporary email files
             ::std::vector< OUString> aFilesToRemove;
 
-            // The SfxObjectShell will be closed explicitly later but it is more safe to use SfxObjectShellLock here
+            // The SfxObjectShell will be closed explicitly later but
+            // it is more safe to use SfxObjectShellLock here
             SfxObjectShellLock xWorkDocSh;
             SwView*            pWorkView             = nullptr;
             SwDoc*             pWorkDoc              = nullptr;
@@ -1332,12 +1332,15 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                             pEvtSrc->LaunchMailMergeEvent( aEvt );
                         }
 
-                        if(bCreateSingleFile)
-                        {
-                            pWorkDoc->RemoveInvisibleContent();
+                        // working copy is merged - prepare final steps depending on merge options
 
+                        if( bCreateSingleFile )
+                        {
                             OSL_ENSURE( pTargetShell, "no target shell available!" );
-                            // copy created file into the target document
+
+                            // prepare working copy and target to append
+
+                            pWorkDoc->RemoveInvisibleContent();
                             rWorkShell.ConvertFieldsToText();
                             rWorkShell.SetNumberingRestart();
                             if( bSynchronizedDoc )
@@ -1345,15 +1348,15 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                                 lcl_RemoveSectionLinks( rWorkShell );
                             }
 
-                            // insert the document into the target document
-
-                            //#i72517# put the styles to the target document
-                            //if the source uses headers or footers each new copy need to copy a new page styles
-                            SwPageDesc* pTargetPageDesc(nullptr);
-                            if(bPageStylesWithHeaderFooter)
+                            // #i72517# put the styles to the target document
+                            // if the source uses headers or footers each working document
+                            // needs inidividual page styles
+                            SwPageDesc* pTargetPageDesc = nullptr;
+                            if( bPageStylesWithHeaderFooter )
                             {
-                                //create a new pagestyle
-                                //copy the pagedesc from the current document to the new document and change the name of the to-be-applied style
+                                // create a new pagestyle
+                                // copy the pagedesc from the current document to the new
+                                // document and change the name of the to-be-applied style
                                 OUString sNewPageDescName = lcl_FindUniqueName(pTargetShell, sStartingPageDesc, nDocNo );
                                 pTargetPageDesc = pTargetDoc->MakePageDesc( sNewPageDescName );
                                 const SwPageDesc* pWorkPageDesc = rWorkShell.FindPageDescByName( sStartingPageDesc );
@@ -1482,7 +1485,7 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
                                     }
                                     xMailDispatcher->enqueueMailMessage( xMessage );
                                     if(!xMailDispatcher->isStarted())
-                                            xMailDispatcher->start();
+                                        xMailDispatcher->start();
                                     //schedule for removal
                                     aFilesToRemove.push_back(sFileURL);
                                 }
@@ -2151,9 +2154,11 @@ bool SwDBManager::ToNextRecord(
 {
     SwDSParam* pFound = nullptr;
     if(pImpl->pMergeData &&
-        rDataSource == pImpl->pMergeData->sDataSource &&
-        rCommand == pImpl->pMergeData->sCommand)
+            rDataSource == pImpl->pMergeData->sDataSource &&
+            rCommand == pImpl->pMergeData->sCommand)
+    {
         pFound = pImpl->pMergeData;
+    }
     else
     {
         SwDBData aData;
@@ -2852,7 +2857,7 @@ void SwDBManager::ExecuteFormLetter( SwWrtShell& rSh,
         pFound = FindDSConnection(sDataSource, true);
     }
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-    OSL_ENSURE(pFact, "Dialog creation failed!");
+    OSL_ENSURE(pFact, "Factory creation failed!");
     pImpl->pMergeDialog = pFact->CreateMailMergeDlg( DLG_MAILMERGE,
                                                         &rSh.GetView().GetViewFrame()->GetWindow(), rSh,
                                                         sDataSource,
@@ -2881,7 +2886,6 @@ void SwDBManager::ExecuteFormLetter( SwWrtShell& rSh,
                         SwDocShell::Factory().GetFilterContainer() );
             try
             {
-
                 uno::Sequence< beans::PropertyValue > aValues(1);
                 beans::PropertyValue* pValues = aValues.getArray();
                 pValues[0].Name = "FilterName";
