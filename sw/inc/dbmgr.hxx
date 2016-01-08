@@ -223,7 +223,6 @@ friend class SwConnectionDisposedListener_Impl;
     /// merge to file _and_ merge to e-Mail
     SAL_DLLPRIVATE bool          MergeMailFiles(SwWrtShell* pSh,
                                         const SwMergeDescriptor& rMergeDescriptor, vcl::Window* pParent );
-    SAL_DLLPRIVATE bool          ToNextRecord(SwDSParam* pParam);
 
     SwDBManager(SwDBManager const&) = delete;
     SwDBManager& operator=(SwDBManager const&) = delete;
