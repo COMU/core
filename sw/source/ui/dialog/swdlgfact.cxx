@@ -511,9 +511,9 @@ OUString AbstractMailMergeDlg_Impl::GetColumnName() const
     return pDlg->GetColumnName();
 }
 
-OUString AbstractMailMergeDlg_Impl::GetPath() const
+OUString AbstractMailMergeDlg_Impl::GetPath(bool user) const
 {
-    return pDlg->GetPath();
+    return pDlg->GetPath(user);
 }
 
 bool AbstractMailMergeCreateFromDlg_Impl::IsThisDocument() const

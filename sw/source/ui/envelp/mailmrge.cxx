@@ -491,7 +491,6 @@ bool SwMailMergeDlg::ExecQryShell()
     if(pImpl->xSelSupp.is()) {
         pImpl->xSelSupp->removeSelectionChangeListener(  pImpl->xChgLstnr );
     }
-    SwDBManager* pMgr = rSh.GetDBManager();
 
     if (m_pPrinterRB->IsChecked())
         nMergeType = DBMGR_MERGE_PRINTER;
@@ -501,33 +500,27 @@ bool SwMailMergeDlg::ExecQryShell()
         INetURLObject aAbs;
         if( pMedium )
             aAbs = pMedium->GetURLObject();
-        OUString sPath(
+        pModOpt->SetMailingPath(
             URIHelper::SmartRel2Abs(
                 aAbs, m_pPathED->GetText(), URIHelper::GetMaybeFileHdl()));
-        pModOpt->SetMailingPath(sPath);
-
-        if (!sPath.endsWith("/"))
-            sPath += "/";
 
         pModOpt->SetIsNameFromColumn(m_pGenerateFromDataBaseCB->IsChecked());
 
-        if (m_pGenerateFromDataBaseCB->IsEnabled() && m_pGenerateFromDataBaseCB->IsChecked()) {
-            pMgr->SetEMailColumn(m_pColumnLB->GetSelectEntry());
+        if (!AskUserFilename()) {
             pModOpt->SetNameFromColumn(m_pColumnLB->GetSelectEntry());
             if( m_pFilterLB->GetSelectEntryPos() != LISTBOX_ENTRY_NOTFOUND)
                 m_sSaveFilter = *static_cast<const OUString*>(m_pFilterLB->GetSelectEntryData());
+            m_sFilename = OUString();
         } else {
             //#i97667# reset column name - otherwise it's remembered from the last run
-            pMgr->SetEMailColumn(OUString());
+            pModOpt->SetNameFromColumn(OUString());
             //start save as dialog
             OUString sFilter;
-            sPath = SwMailMergeHelper::CallSaveAsDialog(sFilter);
-            if (sPath.isEmpty())
+            m_sFilename = SwMailMergeHelper::CallSaveAsDialog(sFilter);
+            if (m_sFilename.isEmpty())
                 return false;
             m_sSaveFilter = sFilter;
         }
-
-        pMgr->SetSubject(sPath);
     }
 
     if (m_pFromRB->IsChecked()) {  // Insert list
