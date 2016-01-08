@@ -979,6 +979,16 @@ bool SwDBManager::MergeMailFiles(SwWrtShell* pSourceShell,
         bCheckSingleFile_ = true;
 #endif
     }
+    else if( bMT_EMAIL )
+    {
+        assert( bMT_EMAIL && !bCheckSingleFile_ );
+        bCheckSingleFile_ = false;
+    }
+    else if( bMT_SHELL )
+    {
+        assert( bMT_SHELL && bCheckSingleFile_ );
+        bCheckSingleFile_ = true;
+    }
     const bool bCreateSingleFile = bCheckSingleFile_;
 
     // Setup for dumping debugging documents
