@@ -42,6 +42,8 @@
  <toolbar:toolbaritem xlink:href=".uno:Undo" toolbar:helpid="5701"/>
  <toolbar:toolbaritem xlink:href=".uno:Redo" toolbar:helpid="5700"/>
  <toolbar:toolbarseparator/>
+ <toolbar:toolbaritem xlink:href=".uno:BugSubmit"/>
+ <toolbar:toolbarseparator/>
  <toolbar:toolbaritem xlink:href=".uno:SearchDialog"/>
  <toolbar:toolbaritem xlink:href=".uno:Navigator" toolbar:visible="false"/>
  <toolbar:toolbaritem xlink:href=".uno:SpellingAndGrammarDialog" toolbar:helpid="20622"/>

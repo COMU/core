@@ -469,6 +469,7 @@
 #define SID_BASIC_ENABLED                   (SID_SFX_START + 964)
 #define SID_EXPORT_DIALOG                   (SID_SFX_START + 965)
 #define SID_IMPORT_DIALOG                   (SID_SFX_START + 966)
+#define SID_BUGSUBMIT_DLG                   (SID_SFX_START + 967)
 
 #define SID_BASICBREAK                      (SID_SFX_START +1521)
 

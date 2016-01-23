@@ -5316,6 +5316,29 @@ SfxBoolItem SearchDialog SID_SEARCH_DLG
     GroupId = GID_EDIT;
 ]
 
+SfxBoolItem BugSubmitDialog SID_BUGSUBMIT_DLG
+[
+    /* flags: */
+    AutoUpdate = TRUE,
+    Cachable = Cachable,
+    FastCall = FALSE,
+    HasCoreId = FALSE,
+    HasDialog = FALSE,
+    ReadOnlyDoc = TRUE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+    Synchron;
+
+    Readonly = FALSE,
+    /* config: */
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    StatusBarConfig = FALSE,
+    ToolBoxConfig = TRUE,
+    GroupId = GID_EDIT;
+]
 
 SfxUInt16Item SearchOptions SID_SEARCH_OPTIONS
 
